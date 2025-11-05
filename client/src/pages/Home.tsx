@@ -6,19 +6,16 @@ import LessonDetail from "@/components/LessonDetail";
 import Footer from "@/components/Footer";
 
 export default function Home() {
-  const [selectedLesson, setSelectedLesson] = useState<number | null>(null);
+  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
 
-  if (selectedLesson) {
+  if (selectedLessonId) {
     return (
       <>
         <Header />
         <main className="container mx-auto px-4 py-8">
           <LessonDetail
-            lessonNumber={selectedLesson}
-            title="O'zgaruvchilar"
-            difficulty="oson"
-            duration="15 daqiqa"
-            onBack={() => setSelectedLesson(null)}
+            lessonId={selectedLessonId}
+            onBack={() => setSelectedLessonId(null)}
           />
         </main>
         <Footer />
@@ -32,7 +29,7 @@ export default function Home() {
       <main>
         <Hero />
         <section className="container mx-auto px-4 py-12 md:py-16">
-          <DailyDashboard />
+          <DailyDashboard onLessonSelect={setSelectedLessonId} />
         </section>
       </main>
       <Footer />

@@ -1,6 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cron from "node-cron";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { storage } from "./storage";
+import { generateDailyLessons } from "./services/gemini.service";
+import { initializeTelegramBot, sendDailyLessonsToChannel } from "./services/telegram.service";
 
 const app = express();
 
@@ -71,6 +75,68 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
+  // Scheduler for daily lesson generation
+  let isGenerating = false;
+
+  async function generateLessonsForDate(date: string) {
+    if (isGenerating) {
+      log(`⏭️  Lesson generation already in progress, skipping for ${date}`);
+      return;
+    }
+
+    try {
+      isGenerating = true;
+      log(`📚 Checking lessons for ${date}...`);
+      
+      const existingLessons = await storage.getLessonsByDate(date);
+      if (existingLessons.length > 0) {
+        log(`✅ Lessons already exist for ${date} (${existingLessons.length} lessons)`);
+        return;
+      }
+
+      log(`🤖 Generating new lessons for ${date}...`);
+      const newLessons = await generateDailyLessons(date);
+      
+      const createdLessons = [];
+      for (const lesson of newLessons) {
+        const created = await storage.createLesson(lesson);
+        createdLessons.push(created);
+      }
+      
+      log(`✅ Successfully generated ${newLessons.length} lessons for ${date}`);
+      
+      // Send to Telegram channel
+      await sendDailyLessonsToChannel(createdLessons);
+    } catch (error) {
+      log(`❌ Error generating lessons for ${date}: ${error}`);
+      console.error("Lesson generation error:", error);
+    } finally {
+      isGenerating = false;
+    }
+  }
+
+  // Backfill: Generate today's lessons on server start if missing
+  const today = new Date().toISOString().split("T")[0];
+  generateLessonsForDate(today).catch((error) => {
+    log(`Failed to backfill today's lessons: ${error}`);
+  });
+
+  // Schedule daily lesson generation at 09:00 Asia/Tashkent time (UTC+5)
+  // Cron format: minute hour * * *
+  // 09:00 Tashkent = 04:00 UTC
+  cron.schedule("0 4 * * *", async () => {
+    const date = new Date().toISOString().split("T")[0];
+    log(`⏰ Scheduled job triggered for ${date}`);
+    await generateLessonsForDate(date);
+  }, {
+    timezone: "UTC"
+  });
+
+  log(`📅 Daily lesson scheduler initialized (runs at 09:00 Tashkent time)`);
+
+  // Initialize Telegram bot
+  initializeTelegramBot();
+
   server.listen({
     port,
     host: "0.0.0.0",

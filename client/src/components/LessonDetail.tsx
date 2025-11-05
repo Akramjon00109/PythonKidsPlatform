@@ -1,37 +1,68 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Clock, Star, Lightbulb, Code2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ArrowLeft, Clock, Star, Lightbulb, Code2, Loader2, AlertCircle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import CodeBlock from "./CodeBlock";
 import ExerciseZone from "./ExerciseZone";
+import type { Lesson } from "@shared/schema";
 
 interface LessonDetailProps {
-  lessonNumber: number;
-  title: string;
-  difficulty: string;
-  duration: string;
+  lessonId: string;
   onBack?: () => void;
 }
 
+async function fetchLesson(id: string): Promise<Lesson> {
+  const response = await fetch(`/api/lessons/${id}`);
+  if (!response.ok) {
+    throw new Error("Darsni yuklashda xatolik");
+  }
+  return response.json();
+}
+
 export default function LessonDetail({
-  lessonNumber,
-  title,
-  difficulty,
-  duration,
+  lessonId,
   onBack
 }: LessonDetailProps) {
+  const { data: lesson, isLoading, error } = useQuery<Lesson>({
+    queryKey: ["lesson", lessonId],
+    queryFn: () => fetchLesson(lessonId),
+    refetchOnWindowFocus: false,
+  });
+
   const handleBack = () => {
     console.log("Going back to lessons");
     onBack?.();
   };
 
-  const sampleCode = `# O'zgaruvchi yaratish
-ism = "Ali"
-yosh = 12
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+          <p className="text-muted-foreground">Dars yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
 
-# Ekranga chiqarish
-print("Mening ismim:", ism)
-print("Yoshim:", yosh)`;
+  if (error || !lesson) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" size="icon" onClick={handleBack}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Xatolik</AlertTitle>
+          <AlertDescription>
+            Darsni yuklashda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -48,20 +79,20 @@ print("Yoshim:", yosh)`;
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
             <Badge variant="secondary" data-testid="badge-lesson-number">
-              Dars #{lessonNumber}
+              Dars #{lesson.lessonNumber}
             </Badge>
             <Badge className="gap-1" data-testid="badge-difficulty">
               <Star className="h-3 w-3" />
-              {difficulty}
+              {lesson.difficulty}
             </Badge>
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
-              <span data-testid="text-duration">{duration}</span>
+              <span data-testid="text-duration">{lesson.duration}</span>
             </div>
           </div>
           
           <h1 className="text-3xl font-bold text-foreground md:text-4xl" data-testid="text-lesson-title">
-            {title}
+            {lesson.title}
           </h1>
         </div>
       </div>
@@ -70,19 +101,13 @@ print("Yoshim:", yosh)`;
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Lightbulb className="h-5 w-5 text-primary" />
-            Nimani o'rganamiz?
+            {lesson.description}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <p className="leading-relaxed text-card-foreground">
-            Bu darsda biz o'zgaruvchilar haqida bilib olamiz. O'zgaruvchi - bu ma'lumotni saqlaydigan quti kabi narsa.
+          <p className="leading-relaxed text-card-foreground whitespace-pre-wrap">
+            {lesson.content}
           </p>
-          <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-4">
-            <li>O'zgaruvchi nima va nima uchun kerak</li>
-            <li>O'zgaruvchi qanday yaratiladi</li>
-            <li>O'zgaruvchiga qiymat qanday beriladi</li>
-            <li>O'zgaruvchini qanday ishlatish mumkin</li>
-          </ul>
         </CardContent>
       </Card>
       
@@ -90,34 +115,21 @@ print("Yoshim:", yosh)`;
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Code2 className="h-5 w-5 text-primary" />
-            Tushuntirish
+            Kod misoli
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="leading-relaxed text-card-foreground">
-            O'zgaruvchi - bu kompyuter xotirasida ma'lumot saqlaydigan joy. Misol uchun, qutiga biror narsani solib, unga nom berishingiz mumkin. Keyinchalik bu nom orqali qutidagi narsani topish oson bo'ladi.
-          </p>
-          
           <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-foreground">Misol:</h3>
-            <CodeBlock code={sampleCode} showLineNumbers />
+            <CodeBlock code={lesson.codeExample} showLineNumbers />
           </div>
-          
-          <p className="leading-relaxed text-muted-foreground">
-            Bu kodda biz ikki ta o'zgaruvchi yaratdik: <code className="px-2 py-1 rounded bg-muted font-mono text-sm">ism</code> va <code className="px-2 py-1 rounded bg-muted font-mono text-sm">yosh</code>. 
-            Keyin ularni print funksiyasi yordamida ekranga chiqardik.
-          </p>
         </CardContent>
       </Card>
       
       <ExerciseZone
         title="O'zingiz sinab ko'ring!"
-        instructions="O'zingiz haqingizda ma'lumot bering. Ismingiz va yoshingizni o'zgaruvchilarda saqlang va ekranga chiqaring."
-        initialCode={`# O'zgaruvchilarni yarating
-ism = "Sizning ismingiz"
-yosh = 0
-
-# Print qiling`}
+        instructions={lesson.exercisePrompt}
+        initialCode={lesson.exerciseStarterCode || ""}
+        expectedOutput={lesson.expectedOutput || ""}
       />
       
       <div className="flex justify-between items-center pt-6 border-t">
