@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateDailyLessons } from "./services/gemini.service";
 import { generateDailyTips } from "./services/tips.service";
+import { sendLessonToChannel, sendTipToChannel } from "./services/telegram.service";
 import { insertLessonSchema, insertTipSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -193,6 +194,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching tips:", error);
       res.status(500).json({ message: "Xatolik yuz berdi" });
+    }
+  });
+
+  // Test endpoint: Send a specific lesson to Telegram channel
+  app.post("/api/telegram/send-lesson", async (req, res) => {
+    try {
+      const { lessonId, lessonNumber, date } = req.body;
+      let lesson;
+      
+      if (lessonId) {
+        lesson = await storage.getLessonById(lessonId);
+      } else if (lessonNumber && date) {
+        const lessons = await storage.getLessonsByDate(date);
+        lesson = lessons.find(l => l.lessonNumber === lessonNumber);
+      } else {
+        const today = new Date().toISOString().split("T")[0];
+        const lessons = await storage.getLessonsByDate(today);
+        lesson = lessons[0];
+      }
+      
+      if (!lesson) {
+        return res.status(404).json({ message: "Dars topilmadi" });
+      }
+      
+      await sendLessonToChannel(lesson);
+      res.json({ 
+        message: "Dars Telegram kanaliga yuborildi",
+        lesson: { id: lesson.id, title: lesson.title }
+      });
+    } catch (error) {
+      console.error("Error sending lesson to Telegram:", error);
+      res.status(500).json({ message: "Telegram'ga yuborishda xatolik yuz berdi" });
+    }
+  });
+
+  // Test endpoint: Send a specific tip to Telegram channel
+  app.post("/api/telegram/send-tip", async (req, res) => {
+    try {
+      const { tipId, tipNumber, date } = req.body;
+      let tip;
+      
+      if (tipId) {
+        tip = await storage.getTipById(tipId);
+      } else if (tipNumber && date) {
+        const tips = await storage.getTipsByDate(date);
+        tip = tips.find(t => t.tipNumber === tipNumber);
+      } else {
+        const today = new Date().toISOString().split("T")[0];
+        const tips = await storage.getTipsByDate(today);
+        tip = tips[0];
+      }
+      
+      if (!tip) {
+        return res.status(404).json({ message: "Maslahat topilmadi" });
+      }
+      
+      await sendTipToChannel(tip);
+      res.json({ 
+        message: "Maslahat Telegram kanaliga yuborildi",
+        tip: { id: tip.id, title: tip.title }
+      });
+    } catch (error) {
+      console.error("Error sending tip to Telegram:", error);
+      res.status(500).json({ message: "Telegram'ga yuborishda xatolik yuz berdi" });
     }
   });
 
