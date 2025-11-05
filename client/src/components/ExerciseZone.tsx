@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Play, RotateCcw, CheckCircle2, AlertCircle } from "lucide-react";
-import { useState } from "react";
+import { Play, RotateCcw, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
+import { useState, useEffect } from "react";
+import Editor from "@monaco-editor/react";
+import { runPythonCode } from "@/lib/pyodide";
 
 interface ExerciseZoneProps {
   title: string;
@@ -19,34 +20,55 @@ export default function ExerciseZone({
 }: ExerciseZoneProps) {
   const [code, setCode] = useState(initialCode);
   const [output, setOutput] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isPyodideLoading, setIsPyodideLoading] = useState(true);
 
-  const handleRun = () => {
+  useEffect(() => {
+    import("@/lib/pyodide").then(({ loadPyodide }) => {
+      loadPyodide()
+        .then(() => setIsPyodideLoading(false))
+        .catch(() => setIsPyodideLoading(false));
+    });
+  }, []);
+
+  const handleRun = async () => {
     setIsRunning(true);
-    console.log("Running code:", code);
+    setOutput("");
+    setError(null);
+    setShowSuccess(false);
     
-    setTimeout(() => {
-      setOutput(expectedOutput);
-      setIsRunning(false);
+    try {
+      const result = await runPythonCode(code);
       
-      if (expectedOutput) {
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 3000);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setOutput(result.output);
+        
+        if (expectedOutput && result.output.trim() === expectedOutput.trim()) {
+          setShowSuccess(true);
+          setTimeout(() => setShowSuccess(false), 4000);
+        }
       }
-    }, 1000);
+    } catch (err: any) {
+      setError("Kod ishga tushirishda xatolik yuz berdi. Qayta urinib ko'ring.");
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   const handleReset = () => {
     setCode(initialCode);
     setOutput("");
+    setError(null);
     setShowSuccess(false);
-    console.log("Code reset");
   };
 
   return (
     <Card className="overflow-hidden" data-testid="exercise-zone">
-      <CardHeader className="bg-primary/5">
+      <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5">
         <CardTitle className="flex items-center gap-2 text-xl">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Play className="h-4 w-4" />
@@ -58,25 +80,49 @@ export default function ExerciseZone({
       
       <CardContent className="space-y-4 p-6">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">Kodingizni yozing:</label>
-          <Textarea
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="# Python kodini bu yerga yozing..."
-            className="min-h-[200px] font-mono text-sm"
-            data-testid="input-code"
-          />
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-foreground">Kodingizni yozing:</label>
+            {isPyodideLoading && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Sparkles className="h-3 w-3 animate-pulse" />
+                Python yuklanmoqda...
+              </span>
+            )}
+          </div>
+          <div className="border rounded-lg overflow-hidden bg-background">
+            <Editor
+              height="300px"
+              defaultLanguage="python"
+              value={code}
+              onChange={(value) => setCode(value || "")}
+              theme="vs-dark"
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                lineNumbers: "on",
+                scrollBeyondLastLine: false,
+                wordWrap: "on",
+                automaticLayout: true,
+                tabSize: 4,
+              }}
+              loading={
+                <div className="flex items-center justify-center h-[300px]">
+                  <p className="text-muted-foreground">Muharrir yuklanmoqda...</p>
+                </div>
+              }
+            />
+          </div>
         </div>
         
         <div className="flex flex-wrap gap-2">
           <Button
             onClick={handleRun}
-            disabled={isRunning || !code.trim()}
+            disabled={isRunning || !code.trim() || isPyodideLoading}
             className="gap-2"
             data-testid="button-run-code"
           >
             <Play className="h-4 w-4" />
-            {isRunning ? "Ishga tushmoqda..." : "Ishga tushirish"}
+            {isRunning ? "Ishga tushmoqda..." : isPyodideLoading ? "Tayyorlanmoqda..." : "Ishga tushirish"}
           </Button>
           
           <Button
@@ -90,10 +136,26 @@ export default function ExerciseZone({
           </Button>
         </div>
         
-        {output && (
+        {error && (
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardContent className="p-4">
+              <div className="flex gap-3">
+                <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+                <div className="space-y-1 flex-1">
+                  <p className="font-medium text-destructive">Xatolik yuz berdi</p>
+                  <pre className="text-sm text-destructive/90 whitespace-pre-wrap font-mono">
+                    {error}
+                  </pre>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {output && !error && (
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Natija:</label>
-            <Card className="bg-muted/50">
+            <Card className="bg-muted/50 border-primary/20">
               <CardContent className="p-4">
                 <pre className="font-mono text-sm leading-relaxed text-foreground whitespace-pre-wrap" data-testid="text-output">
                   {output}
@@ -104,10 +166,14 @@ export default function ExerciseZone({
         )}
         
         {showSuccess && (
-          <div className="flex items-center gap-2 rounded-lg bg-chart-4/10 p-4 text-chart-4">
-            <CheckCircle2 className="h-5 w-5" />
-            <span className="font-medium">Ajoyib! Siz to'g'ri bajardingiz!</span>
-          </div>
+          <Card className="border-green-500/50 bg-green-500/10">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="font-medium">🎉 Ajoyib! Siz to'g'ri bajardingiz!</span>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </CardContent>
     </Card>
