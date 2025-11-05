@@ -1,0 +1,117 @@
+# Python o'qitish platformasi - 1-versiya
+
+## Loyiha maqsadi
+10+ yoshdagi bolalar uchun Python dasturlash tilini o'rgatish bo'yicha interaktiv platforma. Kunlik 5 ta dars avtomatik ravishda web app va Telegram bot orqali yetkazib beriladi.
+
+## Asosiy funktsiyalar (1-versiya)
+- ✅ Kunlik 5 ta Python darsi avtomatik yaratilishi
+- ✅ Web app orqali darslarni ko'rish
+- ✅ Telegram bot orqali darslarni olish
+- ✅ Gemini 2.5 Flash API bilan integratsiya
+- ✅ Bolalar tushunadigan sodda tilda kontent
+- ✅ Oddiy interaktiv mashqlar
+
+## Texnologiya steki
+- Backend: Python (FastAPI)
+- Frontend: React + TailwindCSS
+- AI: Google Gemini 2.5 Flash API
+- Bot: Python-telegram-bot
+- Database: Neon PostgreSQL ☁️
+- Deployment: Local
+
+## Proyekt strukturasi
+python-learning-platform/
+├── backend/
+│   ├── main.py              # FastAPI asosiy fayl
+│   ├── requirements.txt     # Python kutubxonalari
+│   ├── models/
+│   │   └── database.py      # Database modellari
+│   ├── services/
+│   │   ├── gemini_service.py # Gemini API integratsiyasi
+│   │   ├── content_service.py # Darslar yaratish
+│   │   └── scheduler.py      # Avtomatik postlash
+│   ├── bot/
+│   │   └── telegram_bot.py   # Telegram bot
+│   └── api/
+│       └── routes.py         # API endpointlar
+├── frontend/
+│   ├── package.json
+│   ├── src/
+│   │   ├── App.js
+│   │   ├── components/
+│   │   │   ├── LessonCard.js
+│   │   │   └── DailyLessons.js
+│   │   └── styles/
+│       └── globals.css
+└── README.md
+
+## Ishlash tartibi
+1. Kundalik darslar yaratish: Har kuni soat 09:00 da Gemini API orqali 5 ta dars avtomatik yaratiladi
+2. Web app yangilanishi: Yangi darslar web appda ko'rinadi
+3. Telegram postlash: Darslar Telegram kanalga avtomatik yuboriladi
+4. Dars mazmuni: 
+   - Sodda tilda izoh
+   - Kod misollari
+   - Amaliy mashq
+   - Savol-javob
+
+## Darslar mavzulari (misol)
+1. 1-hafta: Asoslar
+   - Python nima?
+   - O'zgaruvchilar
+   - Print funksiyasi
+   - Raqamlar va matematika
+   - Kiritish/chiqarish
+
+2. 2-hafta: Shartli operatorlar
+   - If-else
+   - Mantiqiy amallar
+   - Mish-mishlar (booleans)
+   - Murakkab shartlar
+   - Amaliy mashqlar
+
+## API endpointlar
+- GET /api/lessons/daily - Kunlik darslar
+- GET /api/lessons/{id} - Bitta dars
+- POST /api/lessons/generate - Yangi dars yaratish
+- GET /api/stats - Statistika
+
+## Telegram bot komandalari
+- /start - Botni ishga tushirish
+- /daily - Kunlik darslar
+- /lesson {id} - Ma'lum bir dars
+- /help - Yordam
+
+## O'rnatish va ishga tushirish
+### Neon PostgreSQL sozlash
+1. [Neon Console](https://console.neon.tech) ga kirib yangi project yarating
+2. Database connection string ni oling
+3. .env fayliga qo'shing
+
+### Backend:
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload
+
+### Frontend:
+cd frontend
+npm install
+npm start
+
+### Telegram bot:
+cd backend
+python bot/telegram_bot.py
+
+## Kerakli API kalitlari
+- GEMINI_API_KEY - Google Gemini API
+- TELEGRAM_BOT_TOKEN - Telegram bot token
+- TELEGRAM_CHANNEL_ID - Telegram kanal ID
+- DATABASE_URL - Neon PostgreSQL connection string
+
+## Keyingi versiyalar uchun reja
+- 🔮 Foydalanuvchi tizimi
+- 🔮 Progress tracking
+- 🔮 Interaktiv kod editor
+- 🔮 Gamifikatsiya
+- 🔮 Ota-ona paneli
+- 🔮 Mobil ilova
