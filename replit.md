@@ -39,16 +39,26 @@ Preferred communication style: Simple, everyday language.
 
 **Key Pages**:
 - Home page with Hero section, Daily Dashboard, and Lesson Detail views
-- Conditional rendering between lesson list and detailed lesson view
+- Projects page with project catalog, filters, and project detail views
+- Conditional rendering between lesson/project list and detailed views with proper state management
 
 ### Backend Architecture
 
 **Framework**: Express.js with TypeScript running on Node.js
 
 **API Design**: RESTful endpoints serving JSON
+
+Lessons:
 - `GET /api/lessons/daily` - Fetch today's lessons
 - `GET /api/lessons/:id` - Fetch specific lesson details
 - `POST /api/lessons/generate` - Trigger lesson generation for a date
+
+Projects:
+- `GET /api/projects` - Fetch all mini projects
+- `GET /api/projects/:id` - Fetch specific project details
+- `GET /api/user-projects/:userId/:projectId` - Get user's progress for a project
+- `POST /api/user-projects` - Create new user project progress
+- `PATCH /api/user-projects/:id` - Update user project progress (code, completed steps, status)
 
 **Development Setup**: 
 - Vite middleware integration for HMR in development
@@ -71,6 +81,15 @@ Preferred communication style: Simple, everyday language.
   - Content: full lesson content, code examples, exercise prompts, starter code, expected output
   - Optional icon URL for visual representation
   - Timestamps for tracking creation
+- `projects` table: Mini project templates for hands-on practice:
+  - Metadata: title, category, difficulty, estimated duration
+  - Content: description, detailed steps array, starter code, example code, expected output
+  - Optional icon URL for visual representation
+  - Timestamps for tracking creation
+- `user_projects` table: User progress tracking for projects:
+  - Foreign keys: userId, projectId
+  - Progress: completedSteps array, userCode, status (not_started/in_progress/completed)
+  - Timestamps: startedAt, completedAt
 
 **Connection Pooling**: Uses Neon's serverless connection pooling with WebSocket support
 
@@ -119,3 +138,35 @@ Preferred communication style: Simple, everyday language.
 **Session Management**: PostgreSQL-based session store via `connect-pg-simple`
 
 **Asset Handling**: Custom alias for attached assets directory containing generated images and documentation
+
+## Recent Changes
+
+### November 5, 2025 - Mini Projects Feature
+
+**Added**: Complete mini projects system for hands-on Python practice
+
+**Database Changes**:
+- Added `projects` table with step-by-step project templates
+- Added `user_projects` table for progress tracking
+- Created seed data with 5 starter projects (games and practical tools)
+
+**Backend Changes**:
+- Implemented full CRUD API for projects management
+- Added user progress tracking endpoints
+- Created idempotent seed function for initial projects
+
+**Frontend Changes**:
+- Built ProjectsPage with grid layout and category filters
+- Created ProjectDetail component with step-by-step guidance
+- Integrated Monaco code editor for project exercises
+- Added project cards with difficulty indicators and progress tracking
+- Fixed navigation state management to properly handle view switching
+
+**Seed Projects**:
+1. Son topish o'yini (Number Guessing Game) - oson
+2. Oddiy kalkulyator (Simple Calculator) - oson
+3. Parol yaratuvchi (Password Generator) - o'rta
+4. Tosh-Qaychi-Qog'oz o'yini (Rock-Paper-Scissors) - oson
+5. To-Do List dasturi (To-Do List App) - o'rta
+
+**Navigation**: Added "Loyihalar" button to header for easy access to projects catalog
