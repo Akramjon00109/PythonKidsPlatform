@@ -2,7 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateDailyLessons } from "./services/gemini.service";
-import { insertLessonSchema } from "@shared/schema";
+import { generateDailyTips } from "./services/tips.service";
+import { insertLessonSchema, insertTipSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get today's lessons
@@ -109,6 +110,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(lessons);
     } catch (error) {
       console.error("Error fetching lessons:", error);
+      res.status(500).json({ message: "Xatolik yuz berdi" });
+    }
+  });
+
+  // Get today's tips
+  app.get("/api/tips/daily", async (req, res) => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const tips = await storage.getTipsByDate(today);
+      
+      if (tips.length === 0) {
+        return res.status(404).json({ 
+          message: "Bugun uchun maslahatlar hali yaratilmagan",
+          date: today
+        });
+      }
+      
+      res.json(tips);
+    } catch (error) {
+      console.error("Error fetching daily tips:", error);
+      res.status(500).json({ message: "Xatolik yuz berdi" });
+    }
+  });
+
+  // Get tip by ID
+  app.get("/api/tips/:id", async (req, res) => {
+    try {
+      const tip = await storage.getTipById(req.params.id);
+      
+      if (!tip) {
+        return res.status(404).json({ message: "Maslahat topilmadi" });
+      }
+      
+      res.json(tip);
+    } catch (error) {
+      console.error("Error fetching tip:", error);
+      res.status(500).json({ message: "Xatolik yuz berdi" });
+    }
+  });
+
+  // Generate new tips for a specific date
+  app.post("/api/tips/generate", async (req, res) => {
+    try {
+      const { date } = req.body;
+      const targetDate = date || new Date().toISOString().split("T")[0];
+      
+      const existingTips = await storage.getTipsByDate(targetDate);
+      if (existingTips.length > 0) {
+        return res.status(400).json({ 
+          message: "Bu sana uchun maslahatlar allaqachon mavjud",
+          tips: existingTips
+        });
+      }
+      
+      console.log(`Generating tips for ${targetDate}...`);
+      const newTips = await generateDailyTips(targetDate);
+      
+      const createdTips = [];
+      for (const tip of newTips) {
+        const created = await storage.createTip(tip);
+        createdTips.push(created);
+      }
+      
+      console.log(`Successfully generated ${createdTips.length} tips`);
+      res.json({ 
+        message: "Maslahatlar muvaffaqiyatli yaratildi",
+        tips: createdTips
+      });
+    } catch (error) {
+      console.error("Error generating tips:", error);
+      res.status(500).json({ message: "Maslahatlar yaratishda xatolik yuz berdi" });
+    }
+  });
+
+  // Get all tips (paginated)
+  app.get("/api/tips", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const tips = await storage.getAllTips(limit);
+      res.json(tips);
+    } catch (error) {
+      console.error("Error fetching tips:", error);
       res.status(500).json({ message: "Xatolik yuz berdi" });
     }
   });

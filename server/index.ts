@@ -4,7 +4,8 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
 import { generateDailyLessons } from "./services/gemini.service";
-import { initializeTelegramBot, sendDailyLessonsToChannel } from "./services/telegram.service";
+import { generateDailyTips } from "./services/tips.service";
+import { initializeTelegramBot, sendLessonToChannel, sendTipToChannel } from "./services/telegram.service";
 
 const app = express();
 
@@ -75,64 +76,178 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
-  // Scheduler for daily lesson generation
-  let isGenerating = false;
+  // Scheduler for daily lesson and tip generation
+  let isGeneratingLessons = false;
+  let isGeneratingTips = false;
 
-  async function generateLessonsForDate(date: string) {
-    if (isGenerating) {
-      log(`⏭️  Lesson generation already in progress, skipping for ${date}`);
-      return;
-    }
-
+  async function generateContentForDate(date: string) {
     try {
-      isGenerating = true;
-      log(`📚 Checking lessons for ${date}...`);
+      log(`📚 Checking content for ${date}...`);
       
       const existingLessons = await storage.getLessonsByDate(date);
-      if (existingLessons.length > 0) {
+      const existingTips = await storage.getTipsByDate(date);
+      
+      if (existingLessons.length === 0 && !isGeneratingLessons) {
+        isGeneratingLessons = true;
+        try {
+          log(`🤖 Generating new lessons for ${date}...`);
+          const newLessons = await generateDailyLessons(date);
+          
+          for (const lesson of newLessons) {
+            await storage.createLesson(lesson);
+          }
+          
+          log(`✅ Successfully generated ${newLessons.length} lessons for ${date}`);
+        } finally {
+          isGeneratingLessons = false;
+        }
+      } else if (existingLessons.length > 0) {
         log(`✅ Lessons already exist for ${date} (${existingLessons.length} lessons)`);
-        return;
       }
 
-      log(`🤖 Generating new lessons for ${date}...`);
-      const newLessons = await generateDailyLessons(date);
-      
-      const createdLessons = [];
-      for (const lesson of newLessons) {
-        const created = await storage.createLesson(lesson);
-        createdLessons.push(created);
+      if (existingTips.length === 0 && !isGeneratingTips) {
+        isGeneratingTips = true;
+        try {
+          log(`💡 Generating new tips for ${date}...`);
+          const newTips = await generateDailyTips(date);
+          
+          for (const tip of newTips) {
+            await storage.createTip(tip);
+          }
+          
+          log(`✅ Successfully generated ${newTips.length} tips for ${date}`);
+        } finally {
+          isGeneratingTips = false;
+        }
+      } else if (existingTips.length > 0) {
+        log(`✅ Tips already exist for ${date} (${existingTips.length} tips)`);
       }
-      
-      log(`✅ Successfully generated ${newLessons.length} lessons for ${date}`);
-      
-      // Send to Telegram channel
-      await sendDailyLessonsToChannel(createdLessons);
     } catch (error) {
-      log(`❌ Error generating lessons for ${date}: ${error}`);
-      console.error("Lesson generation error:", error);
-    } finally {
-      isGenerating = false;
+      log(`❌ Error generating content for ${date}: ${error}`);
+      console.error("Content generation error:", error);
     }
   }
 
-  // Backfill: Generate today's lessons on server start if missing
+  async function postLessonToChannel(lessonNumber: number, date: string) {
+    try {
+      const lessons = await storage.getLessonsByDate(date);
+      const lesson = lessons.find(l => l.lessonNumber === lessonNumber);
+      
+      if (lesson) {
+        await sendLessonToChannel(lesson);
+      } else {
+        log(`⚠️  Lesson ${lessonNumber} not found for ${date}`);
+      }
+    } catch (error) {
+      log(`❌ Error posting lesson ${lessonNumber}: ${error}`);
+    }
+  }
+
+  async function postTipToChannel(tipNumber: number, date: string) {
+    try {
+      const tips = await storage.getTipsByDate(date);
+      const tip = tips.find(t => t.tipNumber === tipNumber);
+      
+      if (tip) {
+        await sendTipToChannel(tip);
+      } else {
+        log(`⚠️  Tip ${tipNumber} not found for ${date}`);
+      }
+    } catch (error) {
+      log(`❌ Error posting tip ${tipNumber}: ${error}`);
+    }
+  }
+
+  // Backfill: Generate today's content on server start if missing
   const today = new Date().toISOString().split("T")[0];
-  generateLessonsForDate(today).catch((error) => {
-    log(`Failed to backfill today's lessons: ${error}`);
+  generateContentForDate(today).catch((error) => {
+    log(`Failed to backfill today's content: ${error}`);
   });
 
-  // Schedule daily lesson generation at 09:00 Asia/Tashkent time (UTC+5)
-  // Cron format: minute hour * * *
-  // 09:00 Tashkent = 04:00 UTC
+  // Schedule content generation at 09:00 Tashkent time (04:00 UTC)
   cron.schedule("0 4 * * *", async () => {
     const date = new Date().toISOString().split("T")[0];
-    log(`⏰ Scheduled job triggered for ${date}`);
-    await generateLessonsForDate(date);
+    log(`⏰ Content generation job triggered for ${date}`);
+    await generateContentForDate(date);
   }, {
     timezone: "UTC"
   });
 
-  log(`📅 Daily lesson scheduler initialized (runs at 09:00 Tashkent time)`);
+  // Schedule lesson posts throughout the day (Tashkent time = UTC+5)
+  // Dars 1: 10:00 Tashkent = 05:00 UTC
+  cron.schedule("0 5 * * *", async () => {
+    const date = new Date().toISOString().split("T")[0];
+    log(`📖 Posting lesson 1 for ${date}`);
+    await postLessonToChannel(1, date);
+  }, { timezone: "UTC" });
+
+  // Dars 2: 12:00 Tashkent = 07:00 UTC
+  cron.schedule("0 7 * * *", async () => {
+    const date = new Date().toISOString().split("T")[0];
+    log(`📖 Posting lesson 2 for ${date}`);
+    await postLessonToChannel(2, date);
+  }, { timezone: "UTC" });
+
+  // Dars 3: 14:00 Tashkent = 09:00 UTC
+  cron.schedule("0 9 * * *", async () => {
+    const date = new Date().toISOString().split("T")[0];
+    log(`📖 Posting lesson 3 for ${date}`);
+    await postLessonToChannel(3, date);
+  }, { timezone: "UTC" });
+
+  // Dars 4: 16:00 Tashkent = 11:00 UTC
+  cron.schedule("0 11 * * *", async () => {
+    const date = new Date().toISOString().split("T")[0];
+    log(`📖 Posting lesson 4 for ${date}`);
+    await postLessonToChannel(4, date);
+  }, { timezone: "UTC" });
+
+  // Dars 5: 18:00 Tashkent = 13:00 UTC
+  cron.schedule("0 13 * * *", async () => {
+    const date = new Date().toISOString().split("T")[0];
+    log(`📖 Posting lesson 5 for ${date}`);
+    await postLessonToChannel(5, date);
+  }, { timezone: "UTC" });
+
+  // Schedule tip posts throughout the day
+  // Maslahat 1: 11:00 Tashkent = 06:00 UTC
+  cron.schedule("0 6 * * *", async () => {
+    const date = new Date().toISOString().split("T")[0];
+    log(`💡 Posting tip 1 for ${date}`);
+    await postTipToChannel(1, date);
+  }, { timezone: "UTC" });
+
+  // Maslahat 2: 13:00 Tashkent = 08:00 UTC
+  cron.schedule("0 8 * * *", async () => {
+    const date = new Date().toISOString().split("T")[0];
+    log(`💡 Posting tip 2 for ${date}`);
+    await postTipToChannel(2, date);
+  }, { timezone: "UTC" });
+
+  // Maslahat 3: 15:00 Tashkent = 10:00 UTC
+  cron.schedule("0 10 * * *", async () => {
+    const date = new Date().toISOString().split("T")[0];
+    log(`💡 Posting tip 3 for ${date}`);
+    await postTipToChannel(3, date);
+  }, { timezone: "UTC" });
+
+  // Maslahat 4: 17:00 Tashkent = 12:00 UTC
+  cron.schedule("0 12 * * *", async () => {
+    const date = new Date().toISOString().split("T")[0];
+    log(`💡 Posting tip 4 for ${date}`);
+    await postTipToChannel(4, date);
+  }, { timezone: "UTC" });
+
+  // Maslahat 5: 19:00 Tashkent = 14:00 UTC
+  cron.schedule("0 14 * * *", async () => {
+    const date = new Date().toISOString().split("T")[0];
+    log(`💡 Posting tip 5 for ${date}`);
+    await postTipToChannel(5, date);
+  }, { timezone: "UTC" });
+
+  log(`📅 Content scheduler initialized`);
+  log(`📖 Lessons will be posted at: 10:00, 12:00, 14:00, 16:00, 18:00 Tashkent time`);
+  log(`💡 Tips will be posted at: 11:00, 13:00, 15:00, 17:00, 19:00 Tashkent time`);
 
   // Initialize Telegram bot
   initializeTelegramBot();

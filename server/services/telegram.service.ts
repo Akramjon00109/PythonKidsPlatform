@@ -1,6 +1,6 @@
 import { Telegraf } from "telegraf";
 import { storage } from "../storage";
-import type { Lesson } from "@shared/schema";
+import type { Lesson, Tip } from "@shared/schema";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID;
@@ -124,6 +124,48 @@ export async function sendDailyLessonsToChannel(lessons: Lesson[]) {
     console.log(`✅ Daily lessons posted to Telegram channel ${CHANNEL_ID}`);
   } catch (error) {
     console.error("❌ Failed to post to Telegram channel:", error);
+  }
+}
+
+export async function sendLessonToChannel(lesson: Lesson) {
+  if (!bot || !CHANNEL_ID) {
+    console.warn("⚠️  Telegram bot or channel ID not configured. Skipping channel post.");
+    return;
+  }
+
+  try {
+    let message = `📖 *Dars ${lesson.lessonNumber}: ${lesson.title}*\n\n`;
+    message += `${lesson.description}\n\n`;
+    message += `⭐ Qiyinlik: ${lesson.difficulty}\n`;
+    message += `⏱ Davomiyligi: ${lesson.duration}\n\n`;
+    message += `📝 Dars mazmuni:\n${lesson.content}\n\n`;
+    message += `💻 Kod misoli:\n\`\`\`python\n${lesson.codeExample}\n\`\`\`\n\n`;
+    message += `✏️ Mashq: ${lesson.exercisePrompt}\n\n`;
+    message += `🌐 Mashqlarni bajarish uchun web ilovamizga tashrif buyuring!`;
+
+    await bot.telegram.sendMessage(CHANNEL_ID, message, { parse_mode: "Markdown" });
+    console.log(`✅ Lesson ${lesson.lessonNumber} posted to Telegram channel`);
+  } catch (error) {
+    console.error(`❌ Failed to post lesson ${lesson.lessonNumber} to channel:`, error);
+  }
+}
+
+export async function sendTipToChannel(tip: Tip) {
+  if (!bot || !CHANNEL_ID) {
+    console.warn("⚠️  Telegram bot or channel ID not configured. Skipping channel post.");
+    return;
+  }
+
+  try {
+    let message = `💡 *Maslahat ${tip.tipNumber}: ${tip.title}*\n\n`;
+    message += `${tip.content}\n\n`;
+    message += `📂 Kategoriya: ${tip.category}\n\n`;
+    message += `🌐 Ko'proq maslahatlar uchun web ilovamizga tashrif buyuring!`;
+
+    await bot.telegram.sendMessage(CHANNEL_ID, message, { parse_mode: "Markdown" });
+    console.log(`✅ Tip ${tip.tipNumber} posted to Telegram channel`);
+  } catch (error) {
+    console.error(`❌ Failed to post tip ${tip.tipNumber} to channel:`, error);
   }
 }
 
