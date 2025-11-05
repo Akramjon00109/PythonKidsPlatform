@@ -67,6 +67,17 @@ MUHIM:
       model: "gemini-2.5-flash",
       config: {
         responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            content: { type: "string" },
+            codeExample: { type: "string" },
+            exercisePrompt: { type: "string" },
+            exerciseStarterCode: { type: "string" },
+            expectedOutput: { type: "string" },
+          },
+          required: ["content", "codeExample", "exercisePrompt", "exerciseStarterCode", "expectedOutput"],
+        },
       },
       contents: prompt,
     });
