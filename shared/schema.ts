@@ -41,3 +41,22 @@ export const insertLessonSchema = createInsertSchema(lessons).omit({
 
 export type InsertLesson = z.infer<typeof insertLessonSchema>;
 export type Lesson = typeof lessons.$inferSelect;
+
+export const tips = pgTable("tips", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  category: varchar("category", { length: 50 }).notNull().default("general"),
+  tipNumber: integer("tip_number").notNull(),
+  tipDate: varchar("tip_date", { length: 10 }).notNull(),
+  iconUrl: text("icon_url"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertTipSchema = createInsertSchema(tips).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTip = z.infer<typeof insertTipSchema>;
+export type Tip = typeof tips.$inferSelect;
