@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Lesson, type InsertLesson, type Tip, type InsertTip, lessons, tips } from "@shared/schema";
+import { type User, type InsertUser, type Lesson, type InsertLesson, type Tip, type InsertTip, type Project, type InsertProject, type UserProject, type InsertUserProject, lessons, tips, projects, userProjects } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -19,6 +19,17 @@ export interface IStorage {
   createTip(tip: InsertTip): Promise<Tip>;
   getAllTips(limit?: number): Promise<Tip[]>;
   getLatestTipDate(): Promise<string | null>;
+  
+  getProjectById(id: string): Promise<Project | undefined>;
+  getAllProjects(): Promise<Project[]>;
+  getProjectsByCategory(category: string): Promise<Project[]>;
+  getProjectsByDifficulty(difficulty: string): Promise<Project[]>;
+  createProject(project: InsertProject): Promise<Project>;
+  
+  getUserProject(userId: string, projectId: string): Promise<UserProject | undefined>;
+  getUserProjects(userId: string): Promise<UserProject[]>;
+  createUserProject(userProject: InsertUserProject): Promise<UserProject>;
+  updateUserProject(id: string, updates: Partial<InsertUserProject>): Promise<UserProject>;
 }
 
 export class DbStorage implements IStorage {
@@ -94,6 +105,67 @@ export class DbStorage implements IStorage {
       .orderBy(desc(tips.tipDate))
       .limit(1);
     return result[0]?.tipDate || null;
+  }
+
+  async getProjectById(id: string): Promise<Project | undefined> {
+    const result = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getAllProjects(): Promise<Project[]> {
+    return await db.select().from(projects).orderBy(projects.difficulty, projects.createdAt);
+  }
+
+  async getProjectsByCategory(category: string): Promise<Project[]> {
+    return await db
+      .select()
+      .from(projects)
+      .where(eq(projects.category, category))
+      .orderBy(projects.difficulty, projects.createdAt);
+  }
+
+  async getProjectsByDifficulty(difficulty: string): Promise<Project[]> {
+    return await db
+      .select()
+      .from(projects)
+      .where(eq(projects.difficulty, difficulty))
+      .orderBy(projects.createdAt);
+  }
+
+  async createProject(project: InsertProject): Promise<Project> {
+    const result = await db.insert(projects).values(project).returning();
+    return result[0];
+  }
+
+  async getUserProject(userId: string, projectId: string): Promise<UserProject | undefined> {
+    const result = await db
+      .select()
+      .from(userProjects)
+      .where(and(eq(userProjects.userId, userId), eq(userProjects.projectId, projectId)))
+      .limit(1);
+    return result[0];
+  }
+
+  async getUserProjects(userId: string): Promise<UserProject[]> {
+    return await db
+      .select()
+      .from(userProjects)
+      .where(eq(userProjects.userId, userId))
+      .orderBy(desc(userProjects.createdAt));
+  }
+
+  async createUserProject(userProject: InsertUserProject): Promise<UserProject> {
+    const result = await db.insert(userProjects).values(userProject).returning();
+    return result[0];
+  }
+
+  async updateUserProject(id: string, updates: Partial<InsertUserProject>): Promise<UserProject> {
+    const result = await db
+      .update(userProjects)
+      .set(updates)
+      .where(eq(userProjects.id, id))
+      .returning();
+    return result[0];
   }
 }
 

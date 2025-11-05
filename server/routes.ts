@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { generateDailyLessons } from "./services/gemini.service";
 import { generateDailyTips } from "./services/tips.service";
 import { sendLessonToChannel, sendTipToChannel } from "./services/telegram.service";
-import { insertLessonSchema, insertTipSchema } from "@shared/schema";
+import { insertLessonSchema, insertTipSchema, insertProjectSchema, insertUserProjectSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get today's lessons
@@ -258,6 +258,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error sending tip to Telegram:", error);
       res.status(500).json({ message: "Telegram'ga yuborishda xatolik yuz berdi" });
+    }
+  });
+
+  // Get all projects
+  app.get("/api/projects", async (req, res) => {
+    try {
+      const { category, difficulty } = req.query;
+      
+      let projects;
+      if (category) {
+        projects = await storage.getProjectsByCategory(category as string);
+      } else if (difficulty) {
+        projects = await storage.getProjectsByDifficulty(difficulty as string);
+      } else {
+        projects = await storage.getAllProjects();
+      }
+      
+      res.json(projects);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      res.status(500).json({ message: "Xatolik yuz berdi" });
+    }
+  });
+
+  // Get project by ID
+  app.get("/api/projects/:id", async (req, res) => {
+    try {
+      const project = await storage.getProjectById(req.params.id);
+      
+      if (!project) {
+        return res.status(404).json({ message: "Loyiha topilmadi" });
+      }
+      
+      res.json(project);
+    } catch (error) {
+      console.error("Error fetching project:", error);
+      res.status(500).json({ message: "Xatolik yuz berdi" });
+    }
+  });
+
+  // Create new project
+  app.post("/api/projects", async (req, res) => {
+    try {
+      const validatedData = insertProjectSchema.parse(req.body);
+      const project = await storage.createProject(validatedData);
+      res.status(201).json(project);
+    } catch (error) {
+      console.error("Error creating project:", error);
+      res.status(400).json({ message: "Loyiha yaratishda xatolik yuz berdi" });
+    }
+  });
+
+  // Get user projects
+  app.get("/api/user-projects/:userId", async (req, res) => {
+    try {
+      const userProjects = await storage.getUserProjects(req.params.userId);
+      res.json(userProjects);
+    } catch (error) {
+      console.error("Error fetching user projects:", error);
+      res.status(500).json({ message: "Xatolik yuz berdi" });
+    }
+  });
+
+  // Start or get user project
+  app.post("/api/user-projects", async (req, res) => {
+    try {
+      const { userId, projectId } = req.body;
+      
+      const existing = await storage.getUserProject(userId, projectId);
+      if (existing) {
+        return res.json(existing);
+      }
+      
+      const validatedData = insertUserProjectSchema.parse({
+        userId,
+        projectId,
+        status: "started",
+        completedSteps: [],
+        userCode: null,
+      });
+      
+      const userProject = await storage.createUserProject(validatedData);
+      res.status(201).json(userProject);
+    } catch (error) {
+      console.error("Error creating user project:", error);
+      res.status(400).json({ message: "Xatolik yuz berdi" });
+    }
+  });
+
+  // Update user project progress
+  app.patch("/api/user-projects/:id", async (req, res) => {
+    try {
+      const { completedSteps, userCode, status, completedAt } = req.body;
+      
+      const updates: any = {};
+      if (completedSteps !== undefined) updates.completedSteps = completedSteps;
+      if (userCode !== undefined) updates.userCode = userCode;
+      if (status !== undefined) updates.status = status;
+      if (completedAt !== undefined) updates.completedAt = completedAt;
+      
+      const userProject = await storage.updateUserProject(req.params.id, updates);
+      
+      if (!userProject) {
+        return res.status(404).json({ message: "Foydalanuvchi loyihasi topilmadi" });
+      }
+      
+      res.json(userProject);
+    } catch (error) {
+      console.error("Error updating user project:", error);
+      res.status(400).json({ message: "Yangilashda xatolik yuz berdi" });
     }
   });
 

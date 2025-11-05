@@ -6,6 +6,7 @@ import { storage } from "./storage";
 import { generateDailyLessons } from "./services/gemini.service";
 import { generateDailyTips } from "./services/tips.service";
 import { initializeTelegramBot, sendLessonToChannel, sendTipToChannel } from "./services/telegram.service";
+import { seedProjects } from "./seed-projects";
 
 const app = express();
 
@@ -248,6 +249,13 @@ app.use((req, res, next) => {
   log(`📅 Content scheduler initialized`);
   log(`📖 Lessons will be posted at: 10:00, 12:00, 14:00, 16:00, 18:00 Tashkent time`);
   log(`💡 Tips will be posted at: 11:00, 13:00, 15:00, 17:00, 19:00 Tashkent time`);
+
+  // Seed initial projects
+  try {
+    await seedProjects();
+  } catch (error) {
+    log("Error seeding projects - continuing startup...");
+  }
 
   // Initialize Telegram bot
   initializeTelegramBot();

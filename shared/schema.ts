@@ -60,3 +60,48 @@ export const insertTipSchema = createInsertSchema(tips).omit({
 
 export type InsertTip = z.infer<typeof insertTipSchema>;
 export type Tip = typeof tips.$inferSelect;
+
+export const projects = pgTable("projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  difficulty: varchar("difficulty", { length: 20 }).notNull().default("oson"),
+  duration: varchar("duration", { length: 50 }).notNull(),
+  category: varchar("category", { length: 50 }).notNull(),
+  objective: text("objective").notNull(),
+  steps: text("steps").array().notNull(),
+  starterCode: text("starter_code").notNull(),
+  solutionCode: text("solution_code").notNull(),
+  hints: text("hints").array(),
+  requirements: text("requirements").array().notNull(),
+  tags: text("tags").array(),
+  iconUrl: text("icon_url"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertProjectSchema = createInsertSchema(projects).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertProject = z.infer<typeof insertProjectSchema>;
+export type Project = typeof projects.$inferSelect;
+
+export const userProjects = pgTable("user_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  projectId: varchar("project_id").notNull().references(() => projects.id),
+  status: varchar("status", { length: 20 }).notNull().default("started"),
+  completedSteps: integer("completed_steps").array().notNull().default(sql`ARRAY[]::integer[]`),
+  userCode: text("user_code"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertUserProjectSchema = createInsertSchema(userProjects).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertUserProject = z.infer<typeof insertUserProjectSchema>;
+export type UserProject = typeof userProjects.$inferSelect;
