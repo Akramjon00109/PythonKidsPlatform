@@ -27,11 +27,10 @@ export default function ExerciseZone({
     console.log("Running code:", code);
     
     setTimeout(() => {
-      const mockOutput = "Salom, Python!\nMening ismim Ali\nYoshim 12";
-      setOutput(mockOutput);
+      setOutput(expectedOutput);
       setIsRunning(false);
       
-      if (mockOutput.includes("Salom")) {
+      if (expectedOutput) {
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
       }
