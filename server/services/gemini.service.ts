@@ -1,11 +1,19 @@
 import { GoogleGenAI } from "@google/genai";
 import type { InsertLesson } from "@shared/schema";
 
-if (!process.env.GEMINI_API_KEY) {
-  throw new Error("GEMINI_API_KEY must be set");
-}
+let ai: GoogleGenAI | null = null;
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+function getAI(): GoogleGenAI {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY environment variable is not set. Please add your Gemini API key to use AI-powered lesson generation.");
+  }
+  
+  if (!ai) {
+    ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  }
+  
+  return ai;
+}
 
 export interface LessonTopic {
   title: string;
@@ -54,7 +62,8 @@ MUHIM:
 - Mashq oson va qiziqarli bo'lsin`;
 
   try {
-    const response = await ai.models.generateContent({
+    const genai = getAI();
+    const response = await genai.models.generateContent({
       model: "gemini-2.5-flash",
       config: {
         responseMimeType: "application/json",
