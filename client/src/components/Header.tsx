@@ -1,6 +1,6 @@
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ThemeToggle from "./ThemeToggle";
+import ThemeToggle from "@/components/ThemeToggle";
 import robotMascot from "@assets/generated_images/Python_learning_robot_mascot_542fdcf4.png";
 
 export default function Header() {
